@@ -2,8 +2,8 @@
 An early-2025 Arduino school project
 
 ## Components
-- `camera/camera.ino` - ESP32 camera server
-- `servo/servo.ino` - ESP32 servo server
+- `camera/camera.ino` - ESP32-CAM camera server
+- `servo/servo.ino` - ESP-WROOM-32 servo server
 - `main.py` - Object detection and servo control
 
 ## Setup
