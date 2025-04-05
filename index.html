@@ -1,0 +1,113 @@
+<html>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: sans-serif;
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+            <div style="
+                padding: 1rem;">
+                <div style="
+                    position: relative;">
+                    <img id="imgFrame">
+                    <div style="
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;">
+                        <canvas id="canvasDraw"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div style="
+                padding: 1rem;
+                font-size: 2rem;
+                font-weight: bold;"
+                id="txtStatus">
+            </div>
+        </div>
+        <script>
+            let imgFrame = document.getElementById("imgFrame");
+            let canvasDraw = document.getElementById("canvasDraw");
+            let txtStatus = document.getElementById("txtStatus");
+            let model;
+
+            async function processFrame() {
+                let frame = await window.pywebview.api.get_frame();
+
+                if (!frame) {
+                    requestAnimationFrame(processFrame);
+                    return;
+                }
+
+                imgFrame.src = "data:image/jpeg;base64," + frame;
+            }
+
+            imgFrame.addEventListener("load", async () => {
+                let predictions = await model.detect(imgFrame);
+                predictions = predictions.filter(prediction => prediction.class == "book");
+
+                if (predictions.length > 1) {
+                    predictions.sort((a, b) => b.score - a.score);
+                    predictions = [predictions[0]];
+                }
+
+                canvasDraw.width = imgFrame.width;
+                canvasDraw.height = imgFrame.height;
+                let context = canvasDraw.getContext("2d");
+                context.clearRect(0, 0, canvasDraw.width, canvasDraw.height);
+                context.strokeStyle = "#ff0000";
+                context.lineWidth = 2;
+
+                for (let prediction of predictions) {
+                    let [x, y, width, height] = prediction.bbox;
+                    context.strokeRect(x, y, width, height);
+                    let textHeight = parseInt(window.getComputedStyle(canvasDraw).fontSize);
+                    context.fillStyle = "#ff0000";
+                    context.fillText(prediction.class, x + 5, y + textHeight);
+                }
+
+                let bookCoords = {
+                    x: canvasDraw.width / 2,
+                    y: canvasDraw.height / 2
+                }
+
+                if (predictions.length > 0) {
+                    bookCoords = {
+                        x: predictions[0].bbox[0] + predictions[0].bbox[2] / 2,
+                        y: predictions[0].bbox[1] + predictions[0].bbox[3] / 2
+                    }
+                }
+
+                let output = ""
+
+                if (bookCoords.x / canvasDraw.width > 0.55) {
+                    output = "right";
+                } else if (bookCoords.x / canvasDraw.width < 0.45) {
+                    output = "left";
+                } else if (bookCoords.y / canvasDraw.height > 0.55) {
+                    output = "down";
+                } else if (bookCoords.y / canvasDraw.height < 0.45) {
+                    output = "up";
+                }
+
+                txtStatus.innerText = output;
+                await window.pywebview.api.process_results(output);
+                requestAnimationFrame(processFrame);
+            });
+
+            window.addEventListener("pywebviewready", async () => {
+                model = await cocoSsd.load();
+                processFrame();
+            });
+        </script>
+    </body>
+</html>
