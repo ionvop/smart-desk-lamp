@@ -2,9 +2,11 @@ import webview
 import cv2
 import base64
 import requests
+import json
 
 
-cap = cv2.VideoCapture("<camera_ip>/stream")
+config = json.load(open("config.json"))
+cap = cv2.VideoCapture(config["camera_ip"] + ":81/stream")
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 latest_frame = None
 is_running = True
@@ -21,7 +23,7 @@ class API:
         route = {"left": "L", "right": "R", "up": "U", "down": "D"}.get(result)
 
         try:
-            response = requests.get(f"<servo_url>/{route}", timeout=1)
+            response = requests.get(config["servo_ip"] + f"/{route}", timeout=1)
             print(response.text)
         except requests.exceptions.RequestException as e:
             print(e)
