@@ -1,8 +1,9 @@
 #include <ESP32Servo.h>
 #include <WiFi.h>
+#include <../config.h>
 
-const char *ssid = "<ssid>";
-const char *password = "<password>";
+const char *ssid = WIFI_SSID;
+const char *password = WIFI_PASSWORD;
 NetworkServer server(80);
 Servo servoH;
 Servo servoV;
