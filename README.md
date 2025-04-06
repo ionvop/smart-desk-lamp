@@ -1,6 +1,17 @@
 # smart-desk-lamp
 An early-2025 Arduino school project.
 
+## Materials
+- OV2640
+- ESP32-CAM
+- ESP32-CAM-MB
+- ESP-WROOM-32
+- Two servo motors
+- 5V power supply
+- Jumper wires
+- Micro USB cable
+- Type-C cable
+
 ## Components
 - `camera/camera.ino` - ESP32-CAM server for camera input.
 - `servo/servo.ino` - ESP-WROOM-32 server for servo control.
