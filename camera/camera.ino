@@ -2,9 +2,10 @@
 #include <WiFi.h>
 #define CAMERA_MODEL_AI_THINKER
 #include "camera_pins.h"
+#include "../config.h"
 
-const char *ssid = "<ssid>";
-const char *password = "<password>";
+const char *ssid = WIFI_SSID;
+const char *password = WIFI_PASSWORD;
 void startCameraServer();
 void setupLedFlash(int pin);
 
