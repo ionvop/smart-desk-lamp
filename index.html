@@ -53,7 +53,7 @@
 
             imgFrame.addEventListener("load", async () => {
                 let predictions = await model.detect(imgFrame);
-                predictions = predictions.filter(prediction => prediction.class == "book");
+                predictions = predictions.filter(prediction => prediction.class == "person");
 
                 if (predictions.length > 1) {
                     predictions.sort((a, b) => b.score - a.score);
@@ -75,13 +75,13 @@
                     context.fillText(prediction.class, x + 5, y + textHeight);
                 }
 
-                let bookCoords = {
+                let coords = {
                     x: canvasDraw.width / 2,
                     y: canvasDraw.height / 2
                 }
 
                 if (predictions.length > 0) {
-                    bookCoords = {
+                    coords = {
                         x: predictions[0].bbox[0] + predictions[0].bbox[2] / 2,
                         y: predictions[0].bbox[1] + predictions[0].bbox[3] / 2
                     }
@@ -89,18 +89,16 @@
 
                 let output = ""
 
-                if (bookCoords.x / canvasDraw.width > 0.55) {
+                if (coords.x / canvasDraw.width > 0.6) {
                     output = "right";
-                } else if (bookCoords.x / canvasDraw.width < 0.45) {
+                } else if (coords.x / canvasDraw.width < 0.4) {
                     output = "left";
-                } else if (bookCoords.y / canvasDraw.height > 0.55) {
-                    output = "down";
-                } else if (bookCoords.y / canvasDraw.height < 0.45) {
-                    output = "up";
+                } else if (predictions.length == 0) {
+                    output = "scan";
                 }
 
                 txtStatus.innerText = output;
-                await window.pywebview.api.process_results(output);
+                if (output != "") await window.pywebview.api.process_results(output);
                 requestAnimationFrame(processFrame);
             });
 
