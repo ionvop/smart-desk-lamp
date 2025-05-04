@@ -15,138 +15,120 @@ int signalPin = 4;
 int toneDuration = 0;
 
 void setup() {
-  Serial.begin(115200);
-  servo.attach(15);
-  pinMode(signalPin, OUTPUT);
-  delay(10);
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
+    Serial.begin(115200);
+    servo.attach(15);
+    pinMode(signalPin, OUTPUT);
+    delay(10);
+    Serial.println();
+    Serial.print("Connecting to ");
+    Serial.println(ssid);
+    WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
 
-  Serial.println();
-  Serial.println("WiFi connected.");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-  lcd.init();
-  lcd.backlight();
-  lcd.setCursor(0, 0);
-  lcd.print("IP address: ");
-  lcd.setCursor(0, 1);
-  lcd.print(WiFi.localIP());
-  server.begin();
+    Serial.println();
+    Serial.println("WiFi connected.");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    lcd.init();
+    lcd.backlight();
+    lcd.setCursor(0, 0);
+    lcd.print("IP address: ");
+    lcd.setCursor(0, 1);
+    lcd.print(WiFi.localIP());
+    server.begin();
 }
 
 void loop() {
-  NetworkClient client = server.accept();
+    NetworkClient client = server.accept();
 
-  if (toneDuration > 0) {
-    if (toneDuration > 50) {
-      tone(signalPin, 1000);
-    } else {
-      noTone(signalPin);
-    }
-    
-    toneDuration--;
-  } else {
-    noTone(signalPin);
-  }
+    if (client) {
+        Serial.println("New Client.");
+        String currentLine = "";
 
-  if (client) {
-    Serial.println("New Client.");
-    String currentLine = "";
+        while (client.connected()) {
+            if (client.available()) {
+                char c = client.read();
+                Serial.write(c);
 
-    while (client.connected()) {
-      if (client.available()) {
-        char c = client.read();
-        Serial.write(c);
+                if (c == '\n') {
+                    if (currentLine.startsWith("GET /")) {
+                        handleCommand(currentLine.substring(5, 6));
+                        client.println("HTTP/1.1 200 OK");
+                        client.println("Access-Control-Allow-Origin: *");
+                        client.println("Content-type:text/html");
+                        client.println();
+                        client.print("Servo angle: ");
+                        client.print(angle);
+                        client.println();
+                        Serial.println(currentLine);
+                        Serial.print("Servo angle: ");
+                        Serial.println(angle);
+                        break;
+                    }
 
-        if (c == '\n') {
-          currentLine = "";
-          break;
-        } else if (c != '\r') {
-          currentLine += c;
+                    currentLine = "";
+                    break;
+                } else if (c != '\r') {
+                    currentLine += c;
+                }
+            }
         }
 
-        if (currentLine.startsWith("GET /")) {
-          handleCommand(currentLine.substring(5));
-          servo.write(angle);
-          client.println("HTTP/1.1 200 OK");
-          client.println("Content-type:text/html");
-          client.println();
-          client.print("Servo angle: ");
-          client.print(angle);
-          client.println();
-          break;
-        }
-      }
+        client.stop();
+        Serial.println("Client Disconnected.");
     }
 
-    client.stop();
-    Serial.println("Client Disconnected.");
-  }
+    angle += scan;
+                        
+    if (angle < 10) {
+        angle = 10;
+        scan = 1;
+    } else if (angle > 170) {
+        angle = 170;
+        scan = -1;
+    }
 
-  delay(10);
+    servo.write(angle);
+    delay(50);
 }
 
 void handleCommand(String command) {
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  char commandDirection = command.charAt(0);
-  char commandTone = command.charAt(1);
-  Serial.print("commandDirection: ");
-  Serial.println(commandDirection);
-  Serial.print("commandTone: ");
-  Serial.println(commandTone);
-
-  switch (commandDirection) {
-    case 'L':
-      angle = max(angle - 5, 10);
-      break;
-    case 'R':
-      angle = min(angle + 5, 170);
-      break;
-    case 'S':
-      angle += scan;
-      toneDuration = 0;
-
-      if (angle < 10) {
-        angle = 10;
-        scan = 3;
-      } else if (angle > 170) {
-        angle = 170;
-        scan = -3;
-      }
-
-      break;
-  }
-
-  switch (commandDirection) {
-    case 'L':
-    case 'R':
-    case 'F':
-      lcd.print("Person");
-      lcd.setCursor(0, 1);
-      lcd.print("detected!");
-      break;
-    case 'S':
-      lcd.print("Scanning...");
-  }
-
-  switch (commandTone) {
-    case 'T':
-      if (toneDuration < 1) {
-        toneDuration = 100;
-      }
-
-      break;
-    case 'N':
-      toneDuration = 0;
-      break;
-  }
+    if (command == "L") {
+        scan = -1;
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Person");
+        lcd.setCursor(0, 1);
+        lcd.print("detected!");
+    } else if (command == "R") {
+        scan = 1;
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Person");
+        lcd.setCursor(0, 1);
+        lcd.print("detected!");
+    } else if (command == "F") {
+        scan = 0;
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Person");
+        lcd.setCursor(0, 1);
+        lcd.print("detected!");
+    } else if (command == "S") {
+        if (scan == 0) {
+            scan = 1;
+        }
+        
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Scanning...");
+    } else if (command == "T") {
+        tone(signalPin, 1000);
+    } else if (command == "N") {
+        noTone(signalPin);
+    }
 }
