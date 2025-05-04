@@ -1,0 +1,252 @@
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+        <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js"></script>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: sans-serif;
+            }
+        </style>
+    </head>
+    <body>
+        <div style="
+            display: grid;
+            grid-template-rows: max-content 1fr repeat(3, max-content) 1fr max-content;">
+            <div style="
+                padding: 1rem;"
+                id="panelTime">
+
+            </div>
+            <div style="
+                padding: 1rem;
+                overflow: hidden;">
+                <div style="
+                    position: relative;
+                    height: 100%;">
+                    <img style="
+                        width: 100%;
+                        max-height: 100%;
+                        aspect-ratio: 4/3;
+                        object-fit: cover;"
+                        src="{{ url_for('video_feed') }}"
+                        id="vidFeed">
+                    <div style="
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;">
+                        <canvas id="canvasDraw"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div style="
+                display: grid;
+                grid-template-columns: repeat(2, max-content) 1fr;">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 1rem;">
+                    <input type="checkbox"
+                        id="chkAlarm">
+                </div>
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 1rem;">
+                    Enable alarm
+                </div>
+                <div></div>
+            </div>
+            <div style="
+                display: grid;
+                grid-template-columns: repeat(2, max-content) 1fr;">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 1rem;">
+                    <input type="checkbox"
+                        id="chkTracking">
+                </div>
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 1rem;">
+                    Enable tracking
+                </div>
+                <div></div>
+            </div>
+            <div style="
+                padding: 1rem;">
+                Detected people:
+            </div>
+            <div style="
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(2, 1fr);"
+                id="panelSnaps">
+                
+            </div>
+            <div style="
+                padding: 1rem;
+                text-align: center;">
+                <button id="btnSaveSnaps">
+                    Save snaps
+                </button>
+            </div>
+        </div>
+        <script>
+            let panelTime = document.getElementById("panelTime");
+            let canvasDraw = document.getElementById("canvasDraw");
+            let vidFeed = document.getElementById("vidFeed");
+            let chkAlarm = document.getElementById("chkAlarm");
+            let chkTracking = document.getElementById("chkTracking");
+            let panelSnaps = document.getElementById("panelSnaps");
+            let btnSaveSnaps = document.getElementById("btnSaveSnaps");
+            let alarmTimestamp = 0;
+            let snapTimestamp = 0;
+            let lastDirection = "";
+            let lastTone = "";
+            let model;
+            let snaps = [];
+
+            setInterval(() => {
+                panelTime.innerHTML = new Date().toLocaleString();
+            }, 1000);
+
+            btnSaveSnaps.addEventListener("click", () => {
+                let zip = new JSZip();
+
+                for (let i = 0; i < snaps.length; i++) {
+                    let snap = snaps[i];
+                    snap = snap.querySelector("img").src;
+                    snap = atob(snap.split(",")[1]);
+                    file = new File([snap], `${i}.jpg`, {type:"image/jpeg"});
+                    zip.file(`${i}.jpg`, file);
+                }
+
+                zip.generateAsync({type:"blob"}).then(function(content) {
+                    saveAs(content, "snaps.zip");
+                });
+            });
+
+            async function detect() {
+                let predictions = await model.detect(vidFeed);
+                predictions = predictions.filter(prediction => prediction.class == "person");
+
+                if (predictions.length > 1) {
+                    predictions.sort((a, b) => b.score - a.score);
+                }
+
+                canvasDraw.width = vidFeed.width;
+                canvasDraw.height = vidFeed.height;
+                let context = canvasDraw.getContext("2d");
+                context.clearRect(0, 0, canvasDraw.width, canvasDraw.height);
+                context.strokeStyle = "#ff0000";
+                context.lineWidth = 2;
+
+                for (let prediction of predictions) {
+                    let [x, y, width, height] = prediction.bbox;
+                    context.strokeRect(x, y, width, height);
+                    let textHeight = parseInt(window.getComputedStyle(canvasDraw).fontSize);
+                    context.fillStyle = "#ff0000";
+                    context.fillText(prediction.class, x + 5, y + textHeight);
+                }
+
+                let coords = {
+                    x: canvasDraw.width / 2,
+                    y: canvasDraw.height / 2
+                }
+
+                if (predictions.length > 0) {
+                    coords = {
+                        x: predictions[0].bbox[0] + predictions[0].bbox[2] / 2,
+                        y: predictions[0].bbox[1] + predictions[0].bbox[3] / 2
+                    }
+
+                    if (Date.now() - snapTimestamp > 10000) {
+                        let snap = document.createElement("div");
+                        snap.style.padding = "1rem";
+                        snap.style.overflow = "hidden";
+                        let img = document.createElement("img");
+                        img.style.width = "100%";
+                        img.style.maxHeight = "100%";
+                        img.style.aspectRatio = "4/3";
+                        img.style.objectFit = "cover";
+                        context.drawImage(vidFeed, 0, 0, canvasDraw.width, canvasDraw.height);
+                        img.src = canvasDraw.toDataURL("image/png");
+                        snap.appendChild(img);
+                        snaps.unshift(snap);
+
+                        if (snaps.length > 4) {
+                            snaps.pop();
+                        }
+
+                        panelSnaps.innerHTML = "";
+
+                        for (let snap of snaps) {
+                            panelSnaps.appendChild(snap);
+                        }
+
+                        snapTimestamp = Date.now();
+                    }
+                }
+
+                if (chkTracking.checked && predictions.length >= 1) {
+                    if (coords.x / canvasDraw.width > 0.6 && lastDirection != "L") {
+                        await fetch("http://{{ servo_ip }}/L", {
+                            signal: AbortSignal.timeout(1000)
+                        }).then(res => lastDirection = "L").catch(error => {});
+                    } else if (coords.x / canvasDraw.width < 0.4 && lastDirection != "R") {
+                        await fetch("http://{{ servo_ip }}/R", {
+                            signal: AbortSignal.timeout(1000)
+                        }).then(res => lastDirection = "R").catch(error => {});
+                    } else if (coords.x / canvasDraw.width > 0.4 && coords.x / canvasDraw.width < 0.6 && lastDirection != "F") {
+                        await fetch("http://{{ servo_ip }}/F", {
+                            signal: AbortSignal.timeout(1000)
+                        }).then(res => lastDirection = "F").catch(error => {});
+                    }
+                } else if (lastDirection != "S") {
+                    await fetch("http://{{ servo_ip }}/S", {
+                        signal: AbortSignal.timeout(1000)
+                    }).then(res => lastDirection = "S").catch(error => {});
+                }
+
+                if (chkAlarm.checked && predictions.length >= 1) {
+                    if (Date.now() - alarmTimestamp > 2000 && lastTone != "T") {
+                        await fetch("http://{{ servo_ip }}/T", {
+                            signal: AbortSignal.timeout(1000)
+                        }).then(res => lastTone = "T").catch(error => {});
+                        alarmTimestamp = Date.now();
+                    } else if (Date.now() - alarmTimestamp > 1000 && lastTone != "N") {
+                        await fetch("http://{{ servo_ip }}/N", {
+                            signal: AbortSignal.timeout(1000)
+                        }).then(res => lastTone = "N").catch(error => {});
+                    }
+                } else if (lastTone != "N") {
+                    await fetch("http://{{ servo_ip }}/N", {
+                        signal: AbortSignal.timeout(1000)
+                    }).then(res => lastTone = "N").catch(error => {});
+                }
+
+                requestAnimationFrame(detect);
+            }
+
+            async function initialize() {
+                model = await cocoSsd.load();
+                requestAnimationFrame(detect);
+            }
+
+            initialize();
+        </script>
+    </body>
+</html>
