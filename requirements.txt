@@ -1,4 +1,2 @@
-pywebview
 opencv-python
-requests
 Flask
