@@ -5,15 +5,15 @@
 const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASSWORD;
 NetworkServer server(80);
-Servo servoH;
-Servo servoV;
-int angleH = 90;
-int angleV = 90;
+Servo servo;
+int angle = 90;
+int scan = 3;
+int signalPin = 4;
 
 void setup() {
   Serial.begin(115200);
-  servoH.attach(16);
-  servoV.attach(17);
+  servo.attach(15);
+  pinMode(signalPin, OUTPUT);
   delay(10);
   Serial.println();
   Serial.println();
@@ -52,42 +52,40 @@ void loop() {
           currentLine += c;
         }
 
-        if (currentLine.endsWith("GET /L") || currentLine.endsWith("GET /R") || currentLine.endsWith("GET /U") || currentLine.endsWith("GET /D")) {
+        if (currentLine.endsWith("GET /L") || currentLine.endsWith("GET /R") || currentLine.endsWith("GET /S")) {
           if (currentLine.endsWith("GET /L")) {
-            angleH -= 10;
+            digitalWrite(signalPin, HIGH);
+            angle -= 5;
 
-            if (angleH < 10) {
-              angleH = 10;
+            if (angle < 10) {
+              angle = 10;
             }
           } else if (currentLine.endsWith("GET /R")) {
-            angleH += 10;
+            digitalWrite(signalPin, HIGH);
+            angle += 5;
 
-            if (angleH > 170) {
-              angleH = 170;
+            if (angle > 170) {
+              angle = 170;
             }
-          } else if (currentLine.endsWith("GET /U")) {
-            angleV += 10;
+          } else if (currentLine.endsWith("GET /S")) {
+            digitalWrite(signalPin, LOW);
+            angle += scan;
 
-            if (angleV > 170) {
-              angleV = 170;
-            }
-          } else if (currentLine.endsWith("GET /D")) {
-            angleV -= 10;
-
-            if (angleV < 10) {
-              angleV = 10;
+            if (angle < 10) {
+              angle = 10;
+              scan = 3;
+            } else if (angle > 170) {
+              angle = 170;
+              scan = -3;
             }
           }
 
-          servoH.write(angleH);
-          servoV.write(angleV);
+          servo.write(angle);
           client.println("HTTP/1.1 200 OK");
           client.println("Content-type:text/html");
           client.println();
-          client.print("Servo angleH: ");
-          client.print(angleH);
-          client.print(", Servo angleV: ");
-          client.println(angleV);
+          client.print("Servo angle: ");
+          client.print(angle);
           client.println();
           break;
         }
