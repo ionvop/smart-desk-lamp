@@ -87,7 +87,7 @@
                     }
                 }
 
-                let output = ""
+                let output = "found";
 
                 if (coords.x / canvasDraw.width > 0.6) {
                     output = "right";
@@ -98,7 +98,7 @@
                 }
 
                 txtStatus.innerText = output;
-                if (output != "") await window.pywebview.api.process_results(output);
+                await window.pywebview.api.process_results(output);
                 requestAnimationFrame(processFrame);
             });
 
