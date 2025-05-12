@@ -118,6 +118,7 @@
             let lastTone = "";
             let model;
             let snaps = [];
+            let alarm = new Audio("{{ url_for('static', filename='beep.wav') }}");
 
             setInterval(() => {
                 panelTime.innerHTML = new Date().toLocaleString();
@@ -223,19 +224,23 @@
 
                 if (chkAlarm.checked && predictions.length >= 1) {
                     if (Date.now() - alarmTimestamp > 2000 && lastTone != "T") {
-                        await fetch("http://{{ servo_ip }}/T", {
-                            signal: AbortSignal.timeout(1000)
-                        }).then(res => lastTone = "T").catch(error => {});
+                        // await fetch("http://{{ servo_ip }}/T", {
+                        //     signal: AbortSignal.timeout(1000)
+                        // }).then(res => lastTone = "T").catch(error => {});
+                        lastTone = "T";
+                        alarm.play();
                         alarmTimestamp = Date.now();
                     } else if (Date.now() - alarmTimestamp > 1000 && lastTone != "N") {
-                        await fetch("http://{{ servo_ip }}/N", {
-                            signal: AbortSignal.timeout(1000)
-                        }).then(res => lastTone = "N").catch(error => {});
+                        // await fetch("http://{{ servo_ip }}/N", {
+                        //     signal: AbortSignal.timeout(1000)
+                        // }).then(res => lastTone = "N").catch(error => {});
+                        lastTone = "N";
                     }
                 } else if (lastTone != "N") {
-                    await fetch("http://{{ servo_ip }}/N", {
-                        signal: AbortSignal.timeout(1000)
-                    }).then(res => lastTone = "N").catch(error => {});
+                    // await fetch("http://{{ servo_ip }}/N", {
+                    //     signal: AbortSignal.timeout(1000)
+                    // }).then(res => lastTone = "N").catch(error => {});
+                    lastTone = "N";
                 }
 
                 requestAnimationFrame(detect);
